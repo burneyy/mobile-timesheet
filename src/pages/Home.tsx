@@ -14,8 +14,9 @@ import {
   IonFabButton,
   IonModal,
   IonInput,
+  IonAlert,
 } from '@ionic/react';
-import { add, play, stop } from 'ionicons/icons';
+import { add, play, stop, ellipsisHorizontal, trash, create } from 'ionicons/icons';
 import './Home.css';
 import { Task, TimeEntry } from '../hooks/useIndexedDB';
 import { useIndexedDB } from '../hooks/useIndexedDB';
@@ -28,6 +29,10 @@ const Home: React.FC = () => {
   const [newTaskName, setNewTaskName] = useState('');
   const [newTaskAlias, setNewTaskAlias] = useState('');
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
+  const [editTaskId, setEditTaskId] = useState<string | null>(null);
+  const [editTaskName, setEditTaskName] = useState('');
+  const [editTaskAlias, setEditTaskAlias] = useState('');
+  const [taskToDelete, setTaskToDelete] = useState<string | null>(null);
   
   const db = useIndexedDB();
 
@@ -153,6 +158,35 @@ const Home: React.FC = () => {
     return !entry.endTime;
   };
 
+  const handleEditTask = async (task: Task) => {
+    if (editTaskId === task.id) {
+      try {
+        const updatedTask = {
+          ...task,
+          name: editTaskName,
+          alias: editTaskAlias,
+        };
+        await db.updateTask(updatedTask);
+        setTasks(prevTasks =>
+          prevTasks.map(t =>
+            t.id === task.id ? updatedTask : t
+          )
+        );
+        setEditTaskId(null);
+      } catch (error) {
+        console.error('Error updating task:', error);
+      }
+    } else {
+      setEditTaskId(task.id);
+      setEditTaskName(task.name);
+      setEditTaskAlias(task.alias);
+    }
+  };
+
+  const handleDeleteTask = async (taskId: string) => {
+    setTaskToDelete(taskId);
+  };
+
   return (
     <IonPage>
       <IonHeader>
@@ -164,10 +198,25 @@ const Home: React.FC = () => {
         <IonList>
           {tasks.map(task => (
             <IonItem key={task.id}>
-              <IonLabel>
-                <h2>{task.name}</h2>
-                <p>{task.alias}</p>
-              </IonLabel>
+              {editTaskId === task.id ? (
+                <IonLabel>
+                  <IonInput
+                    value={editTaskName}
+                    onIonChange={e => setEditTaskName(e.detail.value!)}
+                    placeholder="Task name"
+                  />
+                  <IonInput
+                    value={editTaskAlias}
+                    onIonChange={e => setEditTaskAlias(e.detail.value!)}
+                    placeholder="Task alias"
+                  />
+                </IonLabel>
+              ) : (
+                <IonLabel>
+                  <h2>{task.name}</h2>
+                  <p>{task.alias}</p>
+                </IonLabel>
+              )}
               <IonButton
                 fill="clear"
                 onClick={() => toggleTimer(task)}
@@ -176,6 +225,22 @@ const Home: React.FC = () => {
                   icon={activeTaskId === task.id ? stop : play}
                   slot="icon-only"
                 />
+              </IonButton>
+              <IonButton
+                fill="clear"
+                onClick={() => handleEditTask(task)}
+              >
+                <IonIcon
+                  icon={editTaskId === task.id ? ellipsisHorizontal : create}
+                  slot="icon-only"
+                />
+              </IonButton>
+              <IonButton
+                fill="clear"
+                onClick={() => handleDeleteTask(task.id)}
+                color="danger"
+              >
+                <IonIcon icon={trash} slot="icon-only" />
               </IonButton>
             </IonItem>
           ))}
@@ -237,6 +302,33 @@ const Home: React.FC = () => {
             </IonButton>
           </IonContent>
         </IonModal>
+
+        <IonAlert
+          isOpen={!!taskToDelete}
+          onDidDismiss={() => setTaskToDelete(null)}
+          header="Confirm Delete"
+          message="Are you sure you want to delete this task?"
+          buttons={[
+            {
+              text: 'Cancel',
+              role: 'cancel',
+            },
+            {
+              text: 'Delete',
+              role: 'destructive',
+              handler: async () => {
+                if (taskToDelete) {
+                  try {
+                    await db.deleteTask(taskToDelete);
+                    setTasks(prevTasks => prevTasks.filter(task => task.id !== taskToDelete));
+                  } catch (error) {
+                    console.error('Error deleting task:', error);
+                  }
+                }
+              },
+            },
+          ]}
+        />
       </IonContent>
     </IonPage>
   );

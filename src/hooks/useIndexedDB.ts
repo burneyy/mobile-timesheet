@@ -70,6 +70,30 @@ export const useIndexedDB = () => {
     });
   };
 
+  const updateTask = async (task: Task): Promise<void> => {
+    const db = await initDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction('tasks', 'readwrite');
+      const store = transaction.objectStore('tasks');
+      const request = store.put(task);
+
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  };
+
+  const deleteTask = async (taskId: string): Promise<void> => {
+    const db = await initDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction('tasks', 'readwrite');
+      const store = transaction.objectStore('tasks');
+      const request = store.delete(taskId);
+
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  };
+
   const getAllTimeEntries = async (): Promise<TimeEntry[]> => {
     const db = await initDB();
     return new Promise((resolve, reject) => {
@@ -109,6 +133,8 @@ export const useIndexedDB = () => {
   return {
     getAllTasks,
     addTask,
+    updateTask,
+    deleteTask,
     getAllTimeEntries,
     addTimeEntry,
     updateTimeEntry,
