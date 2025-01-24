@@ -1,22 +1,242 @@
-import { IonContent, IonHeader, IonPage, IonTitle, IonToolbar } from '@ionic/react';
-import ExploreContainer from '../components/ExploreContainer';
+import { useState, useEffect } from 'react';
+import {
+  IonContent,
+  IonHeader,
+  IonPage,
+  IonTitle,
+  IonToolbar,
+  IonList,
+  IonItem,
+  IonLabel,
+  IonButton,
+  IonIcon,
+  IonFab,
+  IonFabButton,
+  IonModal,
+  IonInput,
+} from '@ionic/react';
+import { add, play, stop } from 'ionicons/icons';
 import './Home.css';
+import { Task, TimeEntry } from '../hooks/useIndexedDB';
+import { useIndexedDB } from '../hooks/useIndexedDB';
+import { formatDistanceStrict } from 'date-fns';
 
 const Home: React.FC = () => {
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [newTaskName, setNewTaskName] = useState('');
+  const [newTaskAlias, setNewTaskAlias] = useState('');
+  const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
+  
+  const db = useIndexedDB();
+
+  // Load initial data
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const savedTasks = await db.getAllTasks();
+        const savedTimeEntries = await db.getAllTimeEntries();
+        setTasks(savedTasks);
+        setTimeEntries(savedTimeEntries);
+        
+        // Check for active task
+        const activeEntry = savedTimeEntries.find(entry => !entry.endTime);
+        if (activeEntry) {
+          const activeTask = savedTasks.find(task => task.alias === activeEntry.taskAlias);
+          if (activeTask) {
+            setActiveTaskId(activeTask.id);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading data:', error);
+      }
+    };
+    loadData();
+  }, []);
+
+  const handleAddTask = async () => {
+    if (newTaskName && newTaskAlias) {
+      const newTask: Task = {
+        id: Date.now().toString(),
+        name: newTaskName,
+        alias: newTaskAlias,
+      };
+      try {
+        await db.addTask(newTask);
+        setTasks([...tasks, newTask]);
+        setNewTaskName('');
+        setNewTaskAlias('');
+        setIsModalOpen(false);
+      } catch (error) {
+        console.error('Error adding task:', error);
+      }
+    }
+  };
+
+  const toggleTimer = async (task: Task) => {
+    if (activeTaskId === task.id) {
+      // Stop the timer
+      const updatedEntries = timeEntries.map(entry =>
+        entry.taskAlias === task.alias && !entry.endTime
+          ? { ...entry, endTime: new Date() }
+          : entry
+      );
+      
+      try {
+        const entryToUpdate = timeEntries.find(
+          entry => entry.taskAlias === task.alias && !entry.endTime
+        );
+        if (entryToUpdate) {
+          await db.updateTimeEntry({
+            ...entryToUpdate,
+            endTime: new Date()
+          });
+          setTimeEntries(prevEntries => 
+            prevEntries.map(entry =>
+              entry.id === entryToUpdate.id
+                ? { ...entry, endTime: new Date() }
+                : entry
+            )
+          );
+          setActiveTaskId(null);
+        }
+      } catch (error) {
+        console.error('Error updating time entry:', error);
+      }
+    } else {
+      // Stop any running timer first
+      const runningEntry = timeEntries.find(entry => !entry.endTime);
+      if (runningEntry) {
+        try {
+          const updatedEntry = {
+            ...runningEntry,
+            endTime: new Date()
+          };
+          await db.updateTimeEntry(updatedEntry);
+          setTimeEntries(prevEntries =>
+            prevEntries.map(entry =>
+              entry.id === runningEntry.id
+                ? updatedEntry
+                : entry
+            )
+          );
+        } catch (error) {
+          console.error('Error stopping previous timer:', error);
+        }
+      }
+      
+      // Start new timer
+      const newEntry: TimeEntry = {
+        id: Date.now().toString(),
+        taskAlias: task.alias,
+        startTime: new Date(),
+      };
+      
+      try {
+        await db.addTimeEntry(newEntry);
+        setTimeEntries(prevEntries => [...prevEntries, newEntry]);
+        setActiveTaskId(task.id);
+      } catch (error) {
+        console.error('Error adding new time entry:', error);
+      }
+    }
+  };
+
+  const formatDuration = (startTime: Date, endTime: Date | undefined) => {
+    const end = endTime || new Date();
+    return formatDistanceStrict(new Date(startTime), new Date(end));
+  };
+
+  // Update the time entries display to properly check for running status
+  const isRunning = (entry: TimeEntry) => {
+    return !entry.endTime;
+  };
+
   return (
     <IonPage>
       <IonHeader>
         <IonToolbar>
-          <IonTitle>Blank</IonTitle>
+          <IonTitle>Time Tracker</IonTitle>
         </IonToolbar>
       </IonHeader>
-      <IonContent fullscreen>
-        <IonHeader collapse="condense">
-          <IonToolbar>
-            <IonTitle size="large">Blank</IonTitle>
-          </IonToolbar>
-        </IonHeader>
-        <ExploreContainer />
+      <IonContent fullscreen className="ion-padding">
+        <IonList>
+          {tasks.map(task => (
+            <IonItem key={task.id}>
+              <IonLabel>
+                <h2>{task.name}</h2>
+                <p>{task.alias}</p>
+              </IonLabel>
+              <IonButton
+                fill="clear"
+                onClick={() => toggleTimer(task)}
+              >
+                <IonIcon
+                  icon={activeTaskId === task.id ? stop : play}
+                  slot="icon-only"
+                />
+              </IonButton>
+            </IonItem>
+          ))}
+        </IonList>
+
+        <IonList>
+          <IonItem>
+            <IonLabel>
+              <h2>Time Entries</h2>
+            </IonLabel>
+          </IonItem>
+          {timeEntries
+            .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime())
+            .map(entry => (
+              <IonItem key={entry.id}>
+                <IonLabel>
+                  <h3>{tasks.find(t => t.alias === entry.taskAlias)?.name || entry.taskAlias}</h3>
+                  <p>
+                    {new Date(entry.startTime).toLocaleString()} - {' '}
+                    {isRunning(entry) ? 'Running' : new Date(entry.endTime!).toLocaleString()}
+                  </p>
+                  <p>Duration: {formatDuration(entry.startTime, entry.endTime)}</p>
+                </IonLabel>
+              </IonItem>
+            ))}
+        </IonList>
+
+        <IonFab vertical="bottom" horizontal="end" slot="fixed">
+          <IonFabButton onClick={() => setIsModalOpen(true)}>
+            <IonIcon icon={add} />
+          </IonFabButton>
+        </IonFab>
+
+        <IonModal isOpen={isModalOpen} onDidDismiss={() => setIsModalOpen(false)}>
+          <IonHeader>
+            <IonToolbar>
+              <IonTitle>Add New Task</IonTitle>
+            </IonToolbar>
+          </IonHeader>
+          <IonContent>
+            <IonItem>
+              <IonLabel position="stacked">Task Name</IonLabel>
+              <IonInput
+                value={newTaskName}
+                onIonChange={e => setNewTaskName(e.detail.value!)}
+                placeholder="Enter task name"
+              />
+            </IonItem>
+            <IonItem>
+              <IonLabel position="stacked">Task Alias</IonLabel>
+              <IonInput
+                value={newTaskAlias}
+                onIonChange={e => setNewTaskAlias(e.detail.value!)}
+                placeholder="Enter task alias"
+              />
+            </IonItem>
+            <IonButton expand="block" onClick={handleAddTask}>
+              Add Task
+            </IonButton>
+          </IonContent>
+        </IonModal>
       </IonContent>
     </IonPage>
   );
