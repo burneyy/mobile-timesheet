@@ -8,8 +8,8 @@ export interface Task {
 export interface TimeEntry {
   id: string;
   taskAlias: string;
-  startTime: Date;
-  endTime?: Date;
+  startTime: string;
+  endTime?: string;
 }
 
 interface DBSchema {
