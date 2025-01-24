@@ -15,6 +15,9 @@ import {
   IonModal,
   IonInput,
   IonAlert,
+  IonDatetime,
+  IonSelect,
+  IonSelectOption,
 } from '@ionic/react';
 import { add, play, stop, ellipsisHorizontal, trash, create } from 'ionicons/icons';
 import './Home.css';
@@ -33,6 +36,10 @@ const Home: React.FC = () => {
   const [editTaskName, setEditTaskName] = useState('');
   const [editTaskAlias, setEditTaskAlias] = useState('');
   const [taskToDelete, setTaskToDelete] = useState<string | null>(null);
+  const [editTimeEntryId, setEditTimeEntryId] = useState<string | null>(null);
+  const [timeEntryToDelete, setTimeEntryToDelete] = useState<string | null>(null);
+  const [editTimeEntry, setEditTimeEntry] = useState<TimeEntry | null>(null);
+  const [editTimeEntryModal, setEditTimeEntryModal] = useState(false);
   
   const db = useIndexedDB();
 
@@ -187,6 +194,26 @@ const Home: React.FC = () => {
     setTaskToDelete(taskId);
   };
 
+  const handleEditTimeEntry = (entry: TimeEntry) => {
+    setEditTimeEntry(entry);
+    setEditTimeEntryModal(true);
+  };
+
+  const handleSaveTimeEntry = async () => {
+    if (editTimeEntry) {
+      try {
+        await db.updateTimeEntry(editTimeEntry);
+        setTimeEntries(prevEntries =>
+          prevEntries.map(e => e.id === editTimeEntry.id ? editTimeEntry : e)
+        );
+        setEditTimeEntry(null);
+        setEditTimeEntryModal(false);
+      } catch (error) {
+        console.error('Error updating time entry:', error);
+      }
+    }
+  };
+
   return (
     <IonPage>
       <IonHeader>
@@ -264,6 +291,21 @@ const Home: React.FC = () => {
                   </p>
                   <p>Duration: {formatDuration(entry.startTime, entry.endTime)}</p>
                 </IonLabel>
+                <IonButton
+                  fill="clear"
+                  onClick={() => handleEditTimeEntry(entry)}
+                  disabled={isRunning(entry)}
+                >
+                  <IonIcon icon={create} slot="icon-only" />
+                </IonButton>
+                <IonButton
+                  fill="clear"
+                  onClick={() => setTimeEntryToDelete(entry.id)}
+                  color="danger"
+                  disabled={isRunning(entry)}
+                >
+                  <IonIcon icon={trash} slot="icon-only" />
+                </IonButton>
               </IonItem>
             ))}
         </IonList>
@@ -329,6 +371,97 @@ const Home: React.FC = () => {
             },
           ]}
         />
+
+        <IonAlert
+          isOpen={!!timeEntryToDelete}
+          onDidDismiss={() => setTimeEntryToDelete(null)}
+          header="Confirm Delete"
+          message="Are you sure you want to delete this time entry?"
+          buttons={[
+            {
+              text: 'Cancel',
+              role: 'cancel',
+            },
+            {
+              text: 'Delete',
+              role: 'destructive',
+              handler: async () => {
+                if (timeEntryToDelete) {
+                  try {
+                    await db.deleteTimeEntry(timeEntryToDelete);
+                    setTimeEntries(prevEntries => 
+                      prevEntries.filter(entry => entry.id !== timeEntryToDelete)
+                    );
+                  } catch (error) {
+                    console.error('Error deleting time entry:', error);
+                  }
+                }
+              },
+            },
+          ]}
+        />
+
+        <IonModal isOpen={editTimeEntryModal} onDidDismiss={() => setEditTimeEntryModal(false)}>
+          <IonHeader>
+            <IonToolbar>
+              <IonTitle>Edit Time Entry</IonTitle>
+            </IonToolbar>
+          </IonHeader>
+          <IonContent>
+            {editTimeEntry && (
+              <>
+                <IonItem>
+                  <IonLabel>Task</IonLabel>
+                  <IonSelect
+                    value={editTimeEntry.taskAlias}
+                    onIonChange={e => setEditTimeEntry({
+                      ...editTimeEntry,
+                      taskAlias: e.detail.value
+                    })}
+                  >
+                    {tasks.map(task => (
+                      <IonSelectOption key={task.id} value={task.alias}>
+                        {task.name}
+                      </IonSelectOption>
+                    ))}
+                  </IonSelect>
+                </IonItem>
+                
+                <IonItem>
+                  <IonLabel>Start Time</IonLabel>
+                  <IonDatetime
+                    id="startTimePicker"
+                    value={new Date(editTimeEntry.startTime).toISOString()}
+                    onIonChange={e => setEditTimeEntry({
+                      ...editTimeEntry,
+                      startTime: new Date(e.detail.value as string)
+                    })}
+                    presentation="date-time"
+                  />
+                </IonItem>
+
+                {editTimeEntry.endTime && (
+                  <IonItem>
+                    <IonLabel>End Time</IonLabel>
+                    <IonDatetime
+                      id="endTimePicker"
+                      value={new Date(editTimeEntry.endTime).toISOString()}
+                      onIonChange={e => setEditTimeEntry({
+                        ...editTimeEntry,
+                        endTime: new Date(e.detail.value as string)
+                      })}
+                      presentation="date-time"
+                    />
+                  </IonItem>
+                )}
+
+                <IonButton expand="block" onClick={handleSaveTimeEntry}>
+                  Save Changes
+                </IonButton>
+              </>
+            )}
+          </IonContent>
+        </IonModal>
       </IonContent>
     </IonPage>
   );

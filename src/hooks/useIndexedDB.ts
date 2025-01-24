@@ -130,6 +130,18 @@ export const useIndexedDB = () => {
     });
   };
 
+  const deleteTimeEntry = async (timeEntryId: string): Promise<void> => {
+    const db = await initDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction('timeEntries', 'readwrite');
+      const store = transaction.objectStore('timeEntries');
+      const request = store.delete(timeEntryId);
+
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  };
+
   return {
     getAllTasks,
     addTask,
@@ -138,5 +150,6 @@ export const useIndexedDB = () => {
     getAllTimeEntries,
     addTimeEntry,
     updateTimeEntry,
+    deleteTimeEntry,
   };
 }; 
