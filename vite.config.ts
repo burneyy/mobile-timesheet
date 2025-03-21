@@ -12,6 +12,7 @@ export default defineConfig({
     legacy(),
     VitePWA({
       registerType: 'autoUpdate',
+      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
       manifest: {
         name: 'Mobile Timesheet Web App',
         short_name: 'Mobile Timesheet',

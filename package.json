@@ -12,7 +12,8 @@
     "test.unit": "vitest",
     "lint": "eslint",
     "predeploy": "npm run build",
-    "deploy": "gh-pages -d dist"
+    "deploy": "gh-pages -d dist",
+    "generate-pwa-assets": "pwa-assets-generator"
   },
   "dependencies": {
     "@capacitor/app": "7.0.0",
@@ -39,6 +40,7 @@
     "@testing-library/user-event": "^14.4.3",
     "@types/react": "^18.0.27",
     "@types/react-dom": "^18.0.10",
+    "@vite-pwa/assets-generator": "^0.2.6",
     "@vitejs/plugin-legacy": "^5.0.0",
     "@vitejs/plugin-react": "^4.0.1",
     "cypress": "^13.5.0",
