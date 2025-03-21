@@ -1,6 +1,7 @@
 import { Redirect, Route } from 'react-router-dom';
 import { IonApp, IonRouterOutlet, setupIonicReact } from '@ionic/react';
 import { IonReactRouter } from '@ionic/react-router';
+import { createHashHistory } from 'history';
 import Home from './pages/Home';
 
 /* Core CSS required for Ionic components to work properly */
@@ -35,9 +36,11 @@ import './theme/variables.css';
 
 setupIonicReact();
 
+const hashHistory = createHashHistory();
+
 const App: React.FC = () => (
   <IonApp>
-    <IonReactRouter>
+    <IonReactRouter history={hashHistory} basename="/mobile-timesheet">
       <IonRouterOutlet>
         <Route exact path="/home">
           <Home />
