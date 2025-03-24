@@ -12,7 +12,7 @@ export default defineConfig({
     legacy(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
+      includeAssets: ['favicon.ico', 'apple-touch-icon.png'],
       manifest: {
         name: 'Mobile Timesheet Web App',
         short_name: 'Mobile Timesheet',
@@ -32,7 +32,7 @@ export default defineConfig({
         ]
       }})
   ],
-  base: "./",
+  base: "/mobile-timesheet",
   test: {
     globals: true,
     environment: 'jsdom',
